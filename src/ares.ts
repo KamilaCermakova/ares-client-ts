@@ -1,16 +1,14 @@
 /* =========================================================
-   Modul ARES – obecně použitelná verze (bez Tabidoo závislostí)
+   Modul ARES 
    ---------------------------------------------------------
    - Poskytuje funkci getAresInfo(ic), která načte detail subjektu z ARES BE REST API.
-   - Nepoužívá žádné "doo.*" funkce ani notifikace; místo toho vrací data nebo vyhazuje výjimky.
    - Funguje v prohlížeči i v Node.js (Node 18+ s vestavěným fetch; pro starší Node lze přidat 'node-fetch').
-   - Obsahuje defensivní validace a formátování adresy jak v původním kódu.
    ========================================================= */
 
 /* -----------------------------
    1) Veřejné typy (exportované)
    ----------------------------- */
-// Hlavní návratový typ zjednodušené vizitky firmy/OSVČ
+
 export interface AresInfo {
   obchodniJmeno: string;
   ic: string;
@@ -26,7 +24,6 @@ export interface AresInfo {
 /* ----------------------------------------
    2) Interní typy – dle ARES odpovědi (CZ)
    ---------------------------------------- */
-// Pozn.: zachováno dle vašeho původního modelu pro kompatibilitu
 interface CompanyInfo {
   ico: string;
   obchodniJmeno: string;
@@ -91,14 +88,14 @@ export type AresLogger = (msg: string, level?: 'info' | 'success' | 'warning' | 
 export interface AresClientOptions {
   baseUrl?: string;            // pro případ budoucích změn endpointu
   requestTimeoutMs?: number;   // timeout pro HTTP požadavek
-  logger?: AresLogger;         // volitelný callback pro logování (nahrazuje doo.toast/info)
+  logger?: AresLogger;         // volitelný callback pro logování
 }
 
 /* ----------------------------------------------------------
    4) Mapování právních forem (zachováno a rozšířitelné)
    ---------------------------------------------------------- */
 // Pozn.: klíče jsou kódy z ARES; hodnoty jsou čitelné popisy.
-// Lze snadno upravovat/rozšiřovat dle potřeby.
+
 const PRAVNI_FORMA_MAP: Record<string, string> = {
   '000': 'Zatím neurčeno',
   '101': 'Fyzická osoba podnikající dle živnostenského zákona',
@@ -310,19 +307,3 @@ function handleResponseData(response: CompanyInfo): AresInfo {
   }
   return aresInfo;
 }
-
-/* ---------------------------------------
-   8) Krátká ukázka použití (volitelné)
-   ---------------------------------------
-   (Pro Node 18+)
-   import { createAresClient } from './ares';
-
-   const ares = createAresClient({
-     logger: (msg, level) => console.log(`[${level}] ${msg}`)
-   });
-
-   (async () => {
-     const info = await ares.getAresInfo('27074358');
-     console.log(info);
-   })();
-*/
