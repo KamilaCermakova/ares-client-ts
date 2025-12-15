@@ -1,7 +1,6 @@
 # ARES client (TypeScript)
 
 Malý TypeScript klient pro ARES (ČR), který načte data subjektu dle IČ a vrátí je v jednoduchém formátu `AresInfo`.
-Bez závislostí na Tabidoo – čisté `fetch` + TypeScript typy.
 
 ## Funkce
 - `getAresInfo(ic)` – stáhne data z ARES a ztransformuje je na `AresInfo`
