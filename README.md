@@ -17,7 +17,6 @@ npm i
 npm run demo
 ```
 
-## Usage
 ## Příklad použití
 ```ts
 import { createAresClient } from './src/ares';
