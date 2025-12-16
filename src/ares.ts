@@ -1,14 +1,10 @@
-/* =========================================================
+/* 
    Modul ARES 
-   ---------------------------------------------------------
    - Poskytuje funkci getAresInfo(ic), která načte detail subjektu z ARES BE REST API.
    - Funguje v prohlížeči i v Node.js (Node 18+ s vestavěným fetch; pro starší Node lze přidat 'node-fetch').
-   ========================================================= */
+ */
 
-/* -----------------------------
-   1) Veřejné typy (exportované)
-   ----------------------------- */
-
+// 1) Veřejné typy (exportované)
 export interface AresInfo {
   obchodniJmeno: string;
   ic: string;
@@ -21,9 +17,7 @@ export interface AresInfo {
   nameRegion: string;
 }
 
-/* ----------------------------------------
-   2) Interní typy – dle ARES odpovědi (CZ)
-   ---------------------------------------- */
+// 2) Interní typy – dle ARES odpovědi (CZ)
 interface CompanyInfo {
   ico: string;
   obchodniJmeno: string;
@@ -79,9 +73,7 @@ interface Registrations {
   stavZdrojeRed: string;
 }
 
-/* -------------------------------------------------------
-   3) Konfigurace a pomocné typy pro univerzální použití
-   ------------------------------------------------------- */
+//3) Konfigurace a pomocné typy pro univerzální použití
 // Nastavení volitelných callbacků pro hlášení průběhu a chyb
 export type AresLogger = (msg: string, level?: 'info' | 'success' | 'warning' | 'error') => void;
 
@@ -91,10 +83,8 @@ export interface AresClientOptions {
   logger?: AresLogger;         // volitelný callback pro logování
 }
 
-/* ----------------------------------------------------------
-   4) Mapování právních forem (zachováno a rozšířitelné)
-   ---------------------------------------------------------- */
-// Pozn.: klíče jsou kódy z ARES; hodnoty jsou čitelné popisy.
+//4) Mapování právních forem (zachováno a rozšířitelné)
+// klíče jsou kódy z ARES
 
 const PRAVNI_FORMA_MAP: Record<string, string> = {
   '000': 'Zatím neurčeno',
@@ -172,13 +162,11 @@ const PRAVNI_FORMA_MAP: Record<string, string> = {
   '960': 'PO zřízená zvláštním zákonem zapisovaná do veřejného rejstříku'
 };
 
-// Kódy právních forem, které v původní logice znamenají „fyzická osoba“
+// Kódy právních forem, které znamenají „fyzická osoba“
 const FYZICKE_OSOBY = ['100', '101', '102', '103', '104', '105', '106', '107', '108'];
 
-/* ---------------------------------------------------------
-   5) Pomocné utility – fetch s timeoutem a validacemi
-   --------------------------------------------------------- */
-// Jednoduchý helper na timeout pro fetch (Promise.race)
+//5) Pomocné utility – fetch s timeoutem a validacemi
+
 async function fetchWithTimeout(input: RequestInfo | URL, init: RequestInit = {}, timeoutMs = 15000): Promise<Response> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
@@ -196,25 +184,22 @@ async function safeJson<T>(res: Response): Promise<T> {
   return text ? (JSON.parse(text) as T) : ({} as T);
 }
 
-/* ----------------------------------------------
-   6) Veřejná továrna klienta a hlavní funkce
-   ---------------------------------------------- */
+//6) Veřejná továrna klienta a hlavní funkce
 export function createAresClient(options: AresClientOptions = {}) {
-  // Výchozí nastavení – lze přepsat v parametrech
+  // Výchozí nastavení
   const {
     baseUrl = 'https://ares.gov.cz/ekonomicke-subjekty-v-be/rest/ekonomicke-subjekty/',
     requestTimeoutMs = 15000,
     logger
   } = options;
 
-  // Malý wrapper pro "logování" (nahrazuje doo.toast/info apod.)
+  // Malý wrapper pro logování
   const log: AresLogger = (msg, level = 'info') => {
     if (typeof logger === 'function') logger(msg, level);
   };
 
-  // -------------------------
-  // Hlavní veřejná funkce API
-  // -------------------------
+  // Hlavní funkce API
+
   async function getAresInfo(ic: string): Promise<AresInfo | undefined> {
     // 1) Základní kontrola vstupu
     const cleanedIc = (ic || '').toString().trim();
@@ -225,55 +210,51 @@ export function createAresClient(options: AresClientOptions = {}) {
     log('Načítám informace o subjektu z ARES…', 'info');
 
     try {
-      // 2) HTTP GET na ARES endpoint (standardní fetch – žádné doo.functions.request) 
+      // 2) HTTP GET na ARES endpoint 
       const url = `${baseUrl}${encodeURIComponent(cleanedIc)}`;
       const response = await fetchWithTimeout(url, { method: 'GET' }, requestTimeoutMs);
 
       // 3) Vyhodnocení HTTP stavu a převod na JSON
       if (!response.ok) {
-        // 404 = nenalezeno; ostatní kódy = různé chyby s tělem
+        
         let popisChyby = `HTTP ${response.status}`;
         try {
           const errBody = await safeJson<any>(response);
           // ARES někdy vrací informativní "popis"; pokud není, necháme status
           popisChyby = errBody?.errorData?.popis || errBody?.message || popisChyby;
         } catch {
-          /* ignore parse errors */
+          
         }
         throw new Error(`Nebylo možné načíst data z ARES. ${popisChyby}`);
       }
 
       const data = (await safeJson<CompanyInfo>(response)) as CompanyInfo;
 
-      // 4) Validace minimálních polí (analogicky k původní logice if (response?.ico) {...})
+      // 4) Validace minimálních polí 
       if (!data || !data.ico) {
         log('Nevalidní odpověď ARES – zkontrolujte zadané IČ.', 'warning');
         return undefined;
       }
 
-      // 5) Transformace do AresInfo (zachováno z původní logiky)
+      // 5) Transformace do AresInfo
       const result = handleResponseData(data);
 
       log('Data z ARES byla úspěšně načtena.', 'success');
       return result;
 
     } catch (err: any) {
-      // 6) Chyby – vyhazujeme jako výjimku, aby si volající rozhodl o UX (toast, modal atd.)
-      //    Původní kód volal doo.alert.showError/doo.toast (Tabidoo-specifické). Zde čisté throw.
-      //    (V projektu si to napojíte na vlastní notifikace.)
+      // 6) Chyby 
       const description = err?.message || 'Neznámá chyba při komunikaci s ARES.';
       log(`Chyba: ${description}`, 'error');
       throw err;
     }
   }
 
-  // Vrátíme pouze to, co chcete publikovat (např. do portfolia jako čisté API)
   return { getAresInfo };
 }
 
-/* ------------------------------------------------------
-   7) Čistá transformace odpovědi na AresInfo (pure fn)
-   ------------------------------------------------------ */
+//7) Čistá transformace odpovědi na AresInfo
+
 function handleResponseData(response: CompanyInfo): AresInfo {
   // Vytažení dat a bezpečné složení adresy
   const nameRegion = response.sidlo?.nazevKraje ?? '';
@@ -283,7 +264,7 @@ function handleResponseData(response: CompanyInfo): AresInfo {
   const cisloOrientacni = response.sidlo?.cisloOrientacni;
   const cisloOrientacniPismeno = cisloOrientacni ? (response.sidlo?.cisloOrientacniPismeno ?? '') : '';
 
-  // Formátování "Ulice 123/45A" – stejné chování jako v původním kódu
+  // Formátování "Ulice 123/45A"
   const fakturacniAdresaUliceACislo = `${uliceNeboCast} ${cisloDomovni}${cisloOrientacni ? '/' + cisloOrientacni : ''}${cisloOrientacni && cisloOrientacniPismeno ? cisloOrientacniPismeno : ''}`.trim();
 
   // Mapování právní formy na čitelné označení
